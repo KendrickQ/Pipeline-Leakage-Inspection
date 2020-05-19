@@ -23,9 +23,16 @@ def drawbox(img, left, top, width, height, color=(0, 0, 255), d=5):
     return img
 
 
+def is_water(r):
+    thres = 70  # 100
+    fregion = r.astype(np.float32)
+    m = np.mean(fregion)
+    v = np.var(fregion)
+    return m > thres and v > 1 and np.all(fregion[[0, 0, -1, -1], [0, -1, 0, -1]] < m)
+
+
 def diff(a, b):
     global img_cnt
-    thres = 70  # 100
     img = b.copy()
     a = a.astype(np.int16)
     b = b.astype(np.int16)
@@ -33,8 +40,7 @@ def diff(a, b):
     b = np.sum(b, 2)/3
     r = np.zeros(b.shape, np.uint8)
     r[(b > a+5)] = 255
-    # r = cv2.morphologyEx(r, cv2.MORPH_CLOSE, kernel)
-    r = cv2.morphologyEx(r, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    # r = cv2.morphologyEx(r, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     r = cv2.morphologyEx(r, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
     # return r
     # retval,labels=cv2.connectedComponents(r)
@@ -42,16 +48,11 @@ def diff(a, b):
     retval, _, stats, _ = cv2.connectedComponentsWithStats(r)
     for i in range(1, retval):
         l, t, w, h, area = stats[i]
-        r3 = cv2.putText(r3, '%.3f' % (area/w/h), (l, t), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        if area > w*h*0.5 and w > 3:
-            region = b[t:t+h, l:l+w]
-            fregion = region.astype(np.float32)
-            m = np.mean(fregion)
-            v = np.var(fregion)
-            if m > thres and v > 1 and np.all(region[[0, 0, -1, -1], [0, -1, 0, -1]] < m):
+        # r3 = cv2.putText(r3, '%.3f' % (area/w/h), (l, t), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        if area > w*h*0.5 and h>1.2*w and w > 3:
+            if is_water(b[t:t+h, l:l+w]):
                 # cv2.imwrite(f'sample/{img_cnt}.png', img[t: t+h, l: l+w, :])
                 img = drawbox(img, l, t, w, h, (0, 255, 0))
-                print(img_cnt, m, v)
                 img_cnt += 1
             else:
                 img = drawbox(img, l, t, w, h, (0, 0, 255))
